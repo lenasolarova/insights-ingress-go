@@ -152,6 +152,8 @@ func Get() *IngressConfig {
 	options.SetDefault("StagerImplementation", "s3")
 	options.SetEnvPrefix("INGRESS")
 	options.AutomaticEnv()
+	// Explicitly bind INGRESS_KAFKA_BROKERS to KafkaBrokers config key
+	options.BindEnv("KafkaBrokers", "INGRESS_KAFKA_BROKERS")
 	kubenv := viper.New()
 	kubenv.SetDefault("Openshift_Build_Commit", "notrunninginopenshift")
 	kubenv.AutomaticEnv()
