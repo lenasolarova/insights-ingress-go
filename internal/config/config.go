@@ -139,7 +139,7 @@ func Get() *IngressConfig {
 	options.SetDefault("PayloadTrackerURL", "http://payload-tracker/v1/payloads/")
 	options.SetDefault("TlsCAPath", "")
 	options.SetDefault("HTTPClientTimeout", 10)
-	options.SetDefault("Auth", true)
+	options.SetDefault("Auth", false)
 	options.SetDefault("DefaultMaxSize", 100*1024*1024)
 	options.SetDefault("MaxSizeMap", `{}`)
 	options.SetDefault("OpenshiftBuildCommit", "notrunninginopenshift")
