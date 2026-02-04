@@ -111,7 +111,7 @@ func Get() *IngressConfig {
 	options.SetDefault("Hostname", hostname)
 
 	// Kafka config
-	options.SetDefault("KafkaBrokers", []string{"kafka:29092"})
+	options.SetDefault("KafkaBrokers", "kafka:29092")
 	options.SetDefault("KafkaGroupID", "ingress")
 	options.SetDefault("KafkaDeliveryReports", true)
 	options.SetDefault("KafkaTrackerTopic", "platform.payload-status")
@@ -211,6 +211,24 @@ func Get() *IngressConfig {
 		options.SetDefault("AwsSecretAccessKey", cfg.Logging.Cloudwatch.SecretAccessKey)
 	}
 
+	// Parse KafkaBrokers - handle both string slice and comma-separated string
+	var kafkaBrokers []string
+	if options.IsSet("KafkaBrokers") {
+		// If it's a string (from env var), split by comma
+		kafkaBrokersStr := options.GetString("KafkaBrokers")
+		if kafkaBrokersStr != "" {
+			kafkaBrokers = strings.Split(kafkaBrokersStr, ",")
+			// Trim spaces from each broker
+			for i := range kafkaBrokers {
+				kafkaBrokers[i] = strings.TrimSpace(kafkaBrokers[i])
+			}
+		}
+	}
+	// Fallback to slice method (used by Clowder)
+	if len(kafkaBrokers) == 0 {
+		kafkaBrokers = options.GetStringSlice("KafkaBrokers")
+	}
+
 	IngressCfg := &IngressConfig{
 		Hostname:             options.GetString("Hostname"),
 		DefaultMaxSize:       options.GetInt64("DefaultMaxSize"),
@@ -229,7 +247,7 @@ func Get() *IngressConfig {
 		Debug:                options.GetBool("Debug"),
 		DebugUserAgent:       regexp.MustCompile(options.GetString("DebugUserAgent")),
 		KafkaConfig: KafkaCfg{
-			KafkaBrokers:          options.GetStringSlice("KafkaBrokers"),
+			KafkaBrokers:          kafkaBrokers,
 			KafkaGroupID:          options.GetString("KafkaGroupID"),
 			KafkaTrackerTopic:     options.GetString("KafkaTrackerTopic"),
 			KafkaDeliveryReports:  options.GetBool("KafkaDeliveryReports"),
