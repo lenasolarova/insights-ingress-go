@@ -9,7 +9,7 @@ This fork is maintained for **on-premises Insights deployments** (External Data 
 
 **Repository**: https://github.com/lenasolarova/insights-ingress-go
 **Branch**: `new_image`
-**Container Image**: `quay.io/rh-ee-lsolarov/insights-ingress:edp-onprem`
+**Container Image**: https://quay.io/repository/rh-ee-lsolarov/insights-ingress?tab=tags&tag=edp-onprem
 
 ### Key Modifications for On-Prem
 
@@ -45,33 +45,15 @@ git fetch upstream
 git merge upstream/master
 ```
 
-## Details
+## How It Works (On-Prem)
 
-Ingress is a component of cloud.redhat.com that allows for clients to upload data
-to Red Hat. The service sites behind a 3Scale gateway that handles authentication,
-routing, and assignment of unique ID to the upload.
+For on-prem deployments, the ingress workflow is simplified:
 
-Ingress has an interface into cloud storage to retain customer data. It also connects
-to a Kafka message queue in order to notify services of new and available uploads
-for processing.
+1. **insights-operator** sends a payload with content type `application/vnd.redhat.<service>.filename+tgz`
+2. **Ingress** receives the upload, uploads to S3-compatible storage (MinIO), and publishes to Kafka
+3. **Processing services** consume from Kafka and process the data
 
-The service runs inside Openshift Dedicated.
-
-## How It Works
-
-![UML](https://www.plantuml.com/plantuml/png/ZPDBZzem4CVl-HIZS6cbXOOam8e3scDFLG-SoY8qSIR1me_KTf1On7UlJHwxAvMgEU7__EOnVviNwz2uLWhWgZPaRTJuCsUyGUM02KxAVP8oor3G9sd8z2Xt5sW4kaeREMiReR6SMJ9dpaYXf4S8AgLRnIWgqM61bi1c3Hc9AhJlffXkkjPhty_o-kZij0j0WvTG9UhYqqq_psEm1pwGx4Zi11KNlZD_eoVeXmQ5qfyabHp1NHgAKBY1HYvQGn7uRwmupFXzk_q9tblNMc2w9FYIpxDl-NpnDI9XgIzXMyPysl-MI9FKfwltJRkzUjHdDrfP6jVRJGhHqdupUXdGpl712d3QM_rko3_kRWtIre4_e-0bEfypkZG1GJMoYo_hZj4FxGXCS1vq1QF7rnWPqwroyHhY97pp-EbLnGmTrTfSWbnfVTSaEGnlmMlNMn0C_Mx9kWCl0rQaMNwg2cNFeZoLrJsbCLo51oa2e4qTqA3tCtfr-7a8wtGn_XO2QP8_XsDhn1tJaWusEuHZa8jbxejrJpV4mmFz81siywthE-guz5EYR0BdhokP9jaqMMpdo_LYjKuNi-VvCazNgtpnAxuzjdtuFuoU3yBW-2EFTqV2aepTm_KlYyDzyTkhsabFOqrxc5Wl0Lh0Gfzf4hsGAbif_W00 "Ingress Processing Flow")
-
-The Ingress workflow is as follows:
-
-  - The source client sends a payload of a specific content type to cloud.redhat.com
-  - Ingress discovers a validating service from the content type, uploads the file to
-  cloud storage, and puts a message on the announcement topic while applying a header
-  to identify the destination service.
-
-For the vast majority of upload types, the above process is accurate. For payloads from both
-**ansible tower** and the **insights cluster operator**, the flow is a bit different. The key difference here is that it relies on the UHC Auth Proxy for authentication.
-
-![UML](https://www.plantuml.com/plantuml/png/TP5FSvim4CNl-HHRNzBEDEP0Jpt5mTF6qwRrXFYSMSC6D0Y9QbTntKzV2Mpe4FV4_dc_vV6uPK4dljLNxvGfj2y9Qf6EFoU9myEoKbBxlMToXJL2HfQ5RPDEeudC3KkfrJx9FjriusZty3rfaOLS63rdWK1bo2sxUFygFuPD-pwy92e-mY8RgaKeDuPLLGl3puuSYdMB3sSzDjYY2ffLNqHrjlunxLCkK5EOfdaiudwrtS1N53hWSTBvkWYhtNq6AoyrR9tzVOpYs94HLQ0eQo0dzweAcZXbAaVCqUHGHMZNQOlbMp6BTLZHdRDD_udvqCCmY6IUdfeBSDhlUrCj_h46xhGj6ZWVcO17qbEEOq23gTxV_TFJDX-4puzZX6DKNwmxe2jXZqmbM0Daoiug8pDs33U6Duzg9Xbp6g-BFG-11-lpyoF3wHHgXyVuZ3WBLa43Uryq9F-dvwcJAQ4Dgp2CPzx-XM_uqk3fp8pkhJpOL_hNoBLrrMQTd38FbQDVdbWswsjG1cn7Xclr8XUStWOpljL_0G00)
+No 3Scale gateway or authentication is required in this configuration.
 
 ### Announcement Topic
 
@@ -193,23 +175,24 @@ You can also build ingress using Docker/Podman with the provided Dockerfile.
 
 More information on local development can be found [here](./development/README.md)
 
-#### Uploading a File
+#### Uploading a File (On-Prem)
 
-Ingress expects to be behind a 3Scale gateway that provides some mandatory headers.
-You can provide these headers manually with a curl command
+For on-prem deployments with `INGRESS_AUTH=false`, the `x-rh-identity` header is **optional** - the service will automatically add the standard test identity if it's missing:
 
-        $> curl -F "file=@somefile.tar.gz;type=application/vnd.redhat.<service-name>.somefile+tgz" -H "x-rh-identity: <base64 string>" -H "x-rh-insights-request-id: <uuid>" \
-        http://localhost:3000/api/ingress/v1/upload
+```bash
+# Simple upload without identity header (on-prem only)
+curl -F "file=@somefile.tar.gz;type=application/vnd.redhat.openshift.periodic+tgz" \
+  http://localhost:3000/api/ingress/v1/upload
 
-Note, that your service name needs to be in the `INGRESS_VALID_UPLOAD_TYPES` variable inside of the `.env` file.
+# Or with explicit identity header
+curl -F "file=@somefile.tar.gz;type=application/vnd.redhat.openshift.periodic+tgz" \
+  -H "x-rh-identity: eyJpZGVudGl0eSI6IHsidHlwZSI6ICJVc2VyIiwgImFjY291bnRfbnVtYmVyIjogIjAwMDAwMDEiLCAib3JnX2lkIjogIjAwMDAwMSIsICJpbnRlcm5hbCI6IHsib3JnX2lkIjogIjAwMDAwMSJ9fX0=" \
+  http://localhost:3000/api/ingress/v1/upload
+```
 
-For testing, the following base64 identity can be used:
-
-    eyJpZGVudGl0eSI6IHsidHlwZSI6ICJVc2VyIiwgImFjY291bnRfbnVtYmVyIjogIjAwMDAwMDEiLCAib3JnX2lkIjogIjAwMDAwMSIsICJpbnRlcm5hbCI6IHsib3JnX2lkIjogIjAwMDAwMSJ9fX0=
-
-This decodes to:
-
-    {"identity": {"type": "User", "account_number": "0000001", "org_id": "000001", "internal": {"org_id": "000001"}}}
+The standard test identity used by default:
+- **Base64**: `eyJpZGVudGl0eSI6IHsidHlwZSI6ICJVc2VyIiwgImFjY291bnRfbnVtYmVyIjogIjAwMDAwMDEiLCAib3JnX2lkIjogIjAwMDAwMSIsICJpbnRlcm5hbCI6IHsib3JnX2lkIjogIjAwMDAwMSJ9fX0=`
+- **Decoded**: `{"identity": {"type": "User", "account_number": "0000001", "org_id": "000001", "internal": {"org_id": "000001"}}}`
 
 #### Testing
 
