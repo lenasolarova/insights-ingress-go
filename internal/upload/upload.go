@@ -225,6 +225,12 @@ func NewHandler(
 
 		b64Identity := r.Header.Get("x-rh-identity")
 
+		// When auth is disabled and no identity header is present, use standard test identity
+		if cfg.Auth == false && b64Identity == "" {
+			// Standard test identity: {"identity": {"type": "User", "account_number": "0000001", "org_id": "000001", "internal": {"org_id": "000001"}}}
+			b64Identity = "eyJpZGVudGl0eSI6IHsidHlwZSI6ICJVc2VyIiwgImFjY291bnRfbnVtYmVyIjogIjAwMDAwMDEiLCAib3JnX2lkIjogIjAwMDAwMSIsICJpbnRlcm5hbCI6IHsib3JnX2lkIjogIjAwMDAwMSJ9fX0="
+		}
+
 		vr := &validators.Request{
 			RequestID:   reqID,
 			OrgID:       id.Identity.OrgID,
@@ -259,6 +265,12 @@ func NewHandler(
 			vr.Account = id.Identity.AccountNumber
 			vr.Principal = id.Identity.OrgID
 			vr.OrgID = id.Identity.OrgID
+			requestLogger = requestLogger.WithFields(logrus.Fields{"account": vr.Account, "orgid": vr.OrgID})
+		} else {
+			// When auth is disabled, use standard test identity values for on-prem deployments
+			vr.Account = "0000001"
+			vr.Principal = "000001"
+			vr.OrgID = "000001"
 			requestLogger = requestLogger.WithFields(logrus.Fields{"account": vr.Account, "orgid": vr.OrgID})
 		}
 

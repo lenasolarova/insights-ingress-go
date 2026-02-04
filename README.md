@@ -3,6 +3,48 @@
 Ingress is designed to receive payloads from clients and distribute them via a
 Kafka message queue to other platform services.
 
+## On-Prem Fork
+
+This fork is maintained for **on-premises Insights deployments** (External Data Pipeline - EDP).
+
+**Repository**: https://github.com/lenasolarova/insights-ingress-go
+**Branch**: `new_image`
+**Container Image**: `quay.io/rh-ee-lsolarov/insights-ingress:edp-onprem`
+
+### Key Modifications for On-Prem
+
+This fork includes the following changes to support standalone on-prem deployments without 3Scale authentication:
+
+1. **Authentication disabled by default** - `INGRESS_AUTH` defaults to `false` instead of `true`
+2. **Standard test identity injection** - When auth is disabled and no `x-rh-identity` header is present, automatically adds the standard test identity:
+   - `eyJpZGVudGl0eSI6IHsidHlwZSI6ICJVc2VyIiwgImFjY291bnRfbnVtYmVyIjogIjAwMDAwMDEiLCAib3JnX2lkIjogIjAwMDAwMSIsICJpbnRlcm5hbCI6IHsib3JnX2lkIjogIjAwMDAwMSJ9fX0=`
+   - Account: `0000001`, OrgID: `000001`
+3. **Kafka broker configuration fix** - Added explicit binding for `INGRESS_KAFKA_BROKERS` environment variable (fixes viper prefix issue)
+4. **Comma-separated broker support** - Parses comma-separated Kafka broker list from environment variable
+
+### Building the On-Prem Image
+
+```bash
+# Build for AMD64 (required for OpenShift on x86_64)
+docker build --platform linux/amd64 -t quay.io/rh-ee-lsolarov/insights-ingress:edp-onprem .
+
+# Push to registry
+docker push quay.io/rh-ee-lsolarov/insights-ingress:edp-onprem
+```
+
+### Upstream Sync
+
+To sync with upstream changes:
+
+```bash
+# Add upstream remote (first time only)
+git remote add upstream https://github.com/RedHatInsights/insights-ingress-go.git
+
+# Fetch and merge upstream changes
+git fetch upstream
+git merge upstream/master
+```
+
 ## Details
 
 Ingress is a component of cloud.redhat.com that allows for clients to upload data
